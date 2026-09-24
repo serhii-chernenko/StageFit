@@ -67,5 +67,5 @@ TEXT
 rm -f "$dmg"
 hdiutil create -volname "StageFit $version" -srcfolder "$stage" -ov -format UDZO \
   -imagekey zlib-level=9 "$dmg" >/dev/null
-shasum -a 256 "$dmg" > "$dist_dir/SHA256SUMS.txt"
+(cd "$dist_dir" && shasum -a 256 "${dmg:t}" > SHA256SUMS.txt)
 echo "Built $dmg"
