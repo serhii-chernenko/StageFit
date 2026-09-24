@@ -11,8 +11,11 @@ StageFit is a small, open-source macOS menu bar app that fits the front window t
 
 1. Download `StageFit-0.1.0-universal.dmg` from [Releases](https://github.com/serhii-chernenko/macos-window-resizer-for-stage-manager/releases) and open it.
 2. Drag **StageFit.app** onto the **Applications** shortcut in the disk image. Eject the image, then open StageFit from Applications.
-3. Because this free build is **ad-hoc signed and not notarized**, macOS may block the first launch. Try opening it once, then go to **System Settings → Privacy & Security → Open Anyway**, and confirm **Open**. This approves only StageFit; you do not need to disable Gatekeeper. [Apple's instructions](https://support.apple.com/102445)
-4. StageFit will request Accessibility access. In **System Settings → Privacy & Security → Accessibility**, turn on **StageFit**. Return to your window and press **Control–Option–F**.
+3. On the first launch, macOS may show **“StageFit” Not Opened** and say that Apple could not verify it is free of malware. Click **Done** in that dialog.
+4. Open **System Settings → Privacy & Security**, scroll down to **Security**, and click **Open Anyway** for StageFit. When the warning returns, click **Open** and enter your Mac password if asked. If **Open Anyway** is missing, try opening StageFit from Applications again, then return to this settings page. Apple makes the button available for [about an hour after a blocked launch](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac). This approves only StageFit; you do not need to disable Gatekeeper. [Apple's instructions](https://support.apple.com/102445)
+5. StageFit will request Accessibility access. In **System Settings → Privacy & Security → Accessibility**, turn on **StageFit**. Return to your window and press **Control–Option–F**.
+
+This first-launch warning appears because the downloadable app is **ad-hoc signed and not notarized**. The app cannot approve its own Gatekeeper exception.
 
 **Accessibility approval cannot be automatic.** macOS requires the person using the Mac to grant it. StageFit requests the permission and opens the right settings page, but cannot switch its own permission on. The global shortcut and login item are set up by the app itself. [Apple's Accessibility API](https://developer.apple.com/documentation/applicationservices/1459186-axisprocesstrustedwithoptions)
 
