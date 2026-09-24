@@ -1,0 +1,22 @@
+name: Build DMG
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build universal DMG
+        run: Scripts/build-dmg.sh
+      - name: Upload DMG and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: StageFit-universal
+          path: |
+            dist/*.dmg
+            dist/SHA256SUMS.txt
