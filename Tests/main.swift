@@ -88,3 +88,24 @@ try test { service, preferences, settings in
 }
 
 print("Login item tests passed (first launch, upgrades, external removal, approval, errors)")
+
+var accessibility = AccessibilityPermissionState()
+// Launch after an ad-hoc update: explain recovery once, even if an earlier version
+// persisted its "didShowAccessibilityHelp" flag. Shortcuts never invoke the OS prompt.
+precondition(accessibility.shouldPresentHelp(isTrusted: false))
+for _ in 0..<50 { precondition(!accessibility.shouldPresentHelp(isTrusted: false)) }
+// The menu remains an explicit route back to help after dismissing it.
+precondition(accessibility.shouldPresentHelp(isTrusted: false, explicitlyRequested: true))
+// Only an explicit Settings action requests a native permission prompt.
+precondition(accessibility.shouldRequestSystemPrompt(isTrusted: false))
+precondition(!accessibility.shouldRequestSystemPrompt(isTrusted: false))
+// A successful grant clears the session state; revoking access can show help again.
+precondition(!accessibility.shouldPresentHelp(isTrusted: true))
+precondition(!accessibility.shouldRequestSystemPrompt(isTrusted: true))
+precondition(accessibility.shouldPresentHelp(isTrusted: false))
+precondition(accessibility.shouldRequestSystemPrompt(isTrusted: false))
+// A scoped reset permits a fresh OS prompt and recovery guidance.
+accessibility.didResetPermission()
+precondition(accessibility.shouldPresentHelp(isTrusted: false))
+precondition(accessibility.shouldRequestSystemPrompt(isTrusted: false))
+print("Accessibility recovery tests passed (updates, repeated shortcuts, explicit help, grant, revoke, reset)")

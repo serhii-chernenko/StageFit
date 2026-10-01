@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.1 — 2026-10-01
+
+- Stop requesting macOS permission and showing an overlapping app dialog on every resize attempt. Show recovery help once per session, with an explicit menu action to reopen it.
+- Add **Repair Accessibility Access…** with instructions for an enabled but stale permission after an update. A confirmed reset clears only StageFit's Accessibility grant and opens System Settings for user approval.
+- Show fresh permission-recovery instructions after updates even if an older version already displayed first-launch help.
+- Use **Device Control and Data Access** as the settings name on macOS 27.
+- Support `STAGEFIT_SIGNING_IDENTITY` in the build script so maintainers can use the same certificate across builds, preserving code identity instead of relying on changing ad-hoc hashes. An invalid selected identity fails the build rather than falling back.
+- Add regression tests for repeated shortcuts, explicit recovery, grant/revocation, and reset.
+
+This release remains ad-hoc signed and not notarized. User approval is still needed after updating; signing update archives with Ed25519 does not preserve macOS Accessibility grants. Stable certificate signing is required to address that identity change across future builds.
+
 ## 0.2.0 — 2026-10-01
 
 - Add **Check for Updates…** to the menu bar menu, available by click or right-click. Sparkle shows release notes, downloads signed updates, installs them, and relaunches StageFit.

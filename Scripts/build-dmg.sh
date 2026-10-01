@@ -8,6 +8,7 @@ dist_dir="$repo_dir/dist"
 app_dir="$build_dir/StageFit.app"
 binary="$app_dir/Contents/MacOS/StageFit"
 version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$repo_dir/Resources/Info.plist")"
+signing_identity="${STAGEFIT_SIGNING_IDENTITY:--}"
 dmg="$dist_dir/StageFit-$version-universal.dmg"
 zip="$dist_dir/StageFit-$version-universal.zip"
 
@@ -49,9 +50,13 @@ for size in 16 32 128 256 512; do
 done
 iconutil -c icns "$iconset" -o "$app_dir/Contents/Resources/StageFit.icns"
 
-# Ad-hoc signing makes the app internally consistent. It is not Developer ID signing.
+# A certificate provides a stable designated requirement across builds. The
+# dependency-free fallback is ad-hoc, whose identity changes with each build.
 xattr -cr "$app_dir"
-codesign --force --sign - --identifier com.serhiichernenko.stagefit "$app_dir"
+codesign --force --sign "$signing_identity" --identifier com.serhiichernenko.stagefit "$app_dir"
+if [[ "$signing_identity" == "-" ]]; then
+  echo "Ad-hoc signed: macOS Accessibility access must be renewed after updates." >&2
+fi
 codesign --verify --deep --strict "$app_dir"
 ditto -c -k --sequesterRsrc --keepParent "$app_dir" "$zip"
 
@@ -69,8 +74,9 @@ cat > "$stage/READ ME FIRST.txt" <<'TEXT'
 4. Press Control-Option-F to fit the front window.
 5. Use Open at Login and Check for Updates from the StageFit menu bar menu.
 
-StageFit is ad-hoc signed and not notarized. It does not require TestFlight or
-an Apple Developer account to build or use.
+StageFit is not notarized. Default builds are ad-hoc signed, and macOS may
+require renewed Accessibility access after an update. If an enabled entry
+does not work, use Repair Accessibility Access from the StageFit menu.
 TEXT
 
 rm -f "$dmg"
