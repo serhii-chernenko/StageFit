@@ -73,6 +73,7 @@ private final class StageFitController: NSObject, NSApplicationDelegate, NSMenuD
     private var eventHandler: EventHandlerRef?
     private var lastActivePID: pid_t?
     private let preferences = UserDefaults.standard
+    private var accessibilityPermission = AccessibilityPermissionState()
     private lazy var loginItems = LoginItemSettings(service: SMAppService.mainApp,
                                                    preferences: preferences)
     private let updaterController = SPUStandardUpdaterController(
@@ -104,7 +105,7 @@ private final class StageFitController: NSObject, NSApplicationDelegate, NSMenuD
         registerHotKey()
         registerLoginItemIfWanted()
         updaterController.startUpdater()
-        requestAccessibilityOnFirstLaunch()
+        DispatchQueue.main.async { [weak self] in self?.showAccessibilityHelpIfNeeded() }
     }
 
     private func registerHotKey() {
@@ -135,20 +136,69 @@ private final class StageFitController: NSObject, NSApplicationDelegate, NSMenuD
         }
     }
 
-    private func requestAccessibilityOnFirstLaunch() {
-        guard !AXIsProcessTrusted() else { return }
-        _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
-        guard !preferences.bool(forKey: "didShowAccessibilityHelp") else { return }
-        preferences.set(true, forKey: "didShowAccessibilityHelp")
-        DispatchQueue.main.async { [weak self] in
-            let alert = NSAlert()
-            alert.messageText = "One step before StageFit can resize windows"
-            alert.informativeText = "macOS requires you to turn on StageFit in System Settings → Privacy & Security → Accessibility. StageFit cannot grant this permission for you."
-            alert.addButton(withTitle: "Open Accessibility Settings")
-            alert.addButton(withTitle: "Later")
-            NSApp.activate(ignoringOtherApps: true)
-            if alert.runModal() == .alertFirstButtonReturn { self?.openAccessibilitySettings() }
+    private var accessibilityPaneName: String {
+        ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27
+            ? "Device Control and Data Access" : "Accessibility"
+    }
+
+    private func showAccessibilityHelpIfNeeded(explicitlyRequested: Bool = false) {
+        guard accessibilityPermission.shouldPresentHelp(
+            isTrusted: AXIsProcessTrusted(), explicitlyRequested: explicitlyRequested) else { return }
+        let alert = NSAlert()
+        alert.messageText = "Allow this copy of StageFit to resize windows"
+        alert.informativeText = "Open System Settings → Privacy & Security → \(accessibilityPaneName) and allow StageFit. After an update, an enabled entry can still belong to the old app signature. Turn it off and on; if that does not help, choose Reset StageFit Access, then allow the new entry. macOS requires you to approve access."
+        alert.addButton(withTitle: "Open Settings")
+        alert.addButton(withTitle: "Reset StageFit Access…")
+        alert.addButton(withTitle: "Later")
+        NSApp.activate(ignoringOtherApps: true)
+        switch alert.runModal() {
+        case .alertFirstButtonReturn: requestAccessibilityAndOpenSettings()
+        case .alertSecondButtonReturn: confirmAccessibilityReset()
+        default: break
         }
+    }
+
+    private func requestAccessibilityAndOpenSettings() {
+        if accessibilityPermission.shouldRequestSystemPrompt(isTrusted: AXIsProcessTrusted()) {
+            _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
+        }
+        openAccessibilitySettings()
+    }
+
+    private func confirmAccessibilityReset() {
+        let alert = NSAlert()
+        alert.messageText = "Reset StageFit’s Accessibility access?"
+        alert.informativeText = "This removes only StageFit’s existing Accessibility permission. You will need to enable StageFit again in \(accessibilityPaneName). Other apps and permissions are unchanged."
+        alert.addButton(withTitle: "Reset Access")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        // Never reset the whole service if this executable is not in the expected app bundle.
+        guard Bundle.main.bundleIdentifier == bundleID else {
+            showMessage("Could not reset access", "Open the installed StageFit.app from Applications and try again.")
+            return
+        }
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        task.arguments = ["reset", "Accessibility", bundleID]
+        let output = Pipe()
+        task.standardOutput = output
+        task.standardError = output
+        do {
+            try task.run()
+            let data = output.fileHandleForReading.readDataToEndOfFile()
+            task.waitUntilExit()
+            guard task.terminationStatus == 0 else {
+                showMessage("Could not reset access", String(data: data, encoding: .utf8) ?? "Remove StageFit’s old entry in System Settings, then add StageFit.app from Applications.")
+                return
+            }
+            accessibilityPermission.didResetPermission()
+            requestAccessibilityAndOpenSettings()
+        } catch { showMessage("Could not reset access", error.localizedDescription) }
+    }
+
+    @objc private func accessibilityHelpFromMenu() {
+        if AXIsProcessTrusted() { openAccessibilitySettings() }
+        else { showAccessibilityHelpIfNeeded(explicitlyRequested: true) }
     }
 
     @objc private func applicationActivated(_ notification: Notification) {
@@ -160,11 +210,10 @@ private final class StageFitController: NSObject, NSApplicationDelegate, NSMenuD
 
     func fitWindow() {
         guard AXIsProcessTrusted() else {
-            _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
-            showMessage("Accessibility access needed",
-                        "Turn on StageFit in System Settings → Privacy & Security → Accessibility, then try the shortcut again.")
+            showAccessibilityHelpIfNeeded()
             return
         }
+        _ = accessibilityPermission.shouldPresentHelp(isTrusted: true)
         let active = NSWorkspace.shared.frontmostApplication
         let pid = active?.bundleIdentifier == bundleID ? lastActivePID : active?.processIdentifier
         guard let pid else { NSSound.beep(); return }
@@ -205,8 +254,8 @@ private final class StageFitController: NSObject, NSApplicationDelegate, NSMenuD
         menu.addItem(fit)
         menu.addItem(.separator())
 
-        let access = NSMenuItem(title: AXIsProcessTrusted() ? "Accessibility: Granted" : "Grant Accessibility…",
-                                action: #selector(openAccessibilitySettings), keyEquivalent: "")
+        let access = NSMenuItem(title: AXIsProcessTrusted() ? "Accessibility: Granted" : "Repair Accessibility Access…",
+                                action: #selector(accessibilityHelpFromMenu), keyEquivalent: "")
         access.target = self
         menu.addItem(access)
 
