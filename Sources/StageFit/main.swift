@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServices
 import Carbon
 import ServiceManagement
+import Sparkle
 
 private let hotKeySignature: OSType = 0x53544654 // STFT
 private let defaultGap: CGFloat = 202
@@ -72,6 +73,10 @@ private final class StageFitController: NSObject, NSApplicationDelegate, NSMenuD
     private var eventHandler: EventHandlerRef?
     private var lastActivePID: pid_t?
     private let preferences = UserDefaults.standard
+    private lazy var loginItems = LoginItemSettings(service: SMAppService.mainApp,
+                                                   preferences: preferences)
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -87,6 +92,7 @@ private final class StageFitController: NSObject, NSApplicationDelegate, NSMenuD
         statusItem.button?.image = NSImage(systemSymbolName: "rectangle.inset.filled",
                                            accessibilityDescription: "StageFit")
         statusItem.button?.toolTip = "StageFit — Control–Option–F"
+        statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
@@ -97,6 +103,7 @@ private final class StageFitController: NSObject, NSApplicationDelegate, NSMenuD
 
         registerHotKey()
         registerLoginItemIfWanted()
+        updaterController.startUpdater()
         requestAccessibilityOnFirstLaunch()
     }
 
@@ -119,13 +126,13 @@ private final class StageFitController: NSObject, NSApplicationDelegate, NSMenuD
     }
 
     private func registerLoginItemIfWanted() {
-        if preferences.object(forKey: "launchAtLogin") == nil {
-            preferences.set(true, forKey: "launchAtLogin")
+        do { try loginItems.configureOnFirstLaunch() }
+        catch {
+            DispatchQueue.main.async { [weak self] in
+                self?.showMessage("Could not enable Open at Login",
+                                  "You can try again from StageFit’s menu. \(error.localizedDescription)")
+            }
         }
-        guard preferences.bool(forKey: "launchAtLogin"),
-              SMAppService.mainApp.status == .notRegistered else { return }
-        do { try SMAppService.mainApp.register() }
-        catch { NSLog("StageFit: could not register login item: %@", String(describing: error)) }
     }
 
     private func requestAccessibilityOnFirstLaunch() {
@@ -203,10 +210,16 @@ private final class StageFitController: NSObject, NSApplicationDelegate, NSMenuD
         access.target = self
         menu.addItem(access)
 
-        let login = NSMenuItem(title: "Open at Login", action: #selector(toggleLoginItem), keyEquivalent: "")
+        let login = NSMenuItem(title: loginItems.requiresApproval ? "Open at Login (Approval Required)" : "Open at Login",
+                               action: #selector(toggleLoginItem), keyEquivalent: "")
         login.target = self
-        login.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        login.state = loginItems.menuState
         menu.addItem(login)
+        let loginSettings = NSMenuItem(
+            title: loginItems.requiresApproval ? "Approve Open at Login…" : "Login Items Settings…",
+            action: #selector(openLoginItemSettings), keyEquivalent: "")
+        loginSettings.target = self
+        menu.addItem(loginSettings)
 
         let gapMenu = NSMenu()
         let currentGap = preferences.object(forKey: "gapPoints") == nil
@@ -239,6 +252,11 @@ private final class StageFitController: NSObject, NSApplicationDelegate, NSMenuD
         let about = NSMenuItem(title: "About StageFit", action: #selector(showAbout), keyEquivalent: "")
         about.target = self
         menu.addItem(about)
+        let updates = NSMenuItem(title: "Check for Updates…",
+                                 action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
+                                 keyEquivalent: "")
+        updates.target = updaterController
+        menu.addItem(updates)
         let quit = NSMenuItem(title: "Quit StageFit", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
@@ -248,23 +266,29 @@ private final class StageFitController: NSObject, NSApplicationDelegate, NSMenuD
     @objc private func selectGap(_ item: NSMenuItem) { preferences.set(item.tag, forKey: "gapPoints") }
     @objc private func selectSide(_ item: NSMenuItem) { preferences.set(item.tag, forKey: "gapSide") }
     @objc private func toggleLoginItem() {
-        let service = SMAppService.mainApp
         do {
-            if service.status == .enabled {
-                try service.unregister()
-                preferences.set(false, forKey: "launchAtLogin")
-            } else {
-                try service.register()
-                preferences.set(true, forKey: "launchAtLogin")
-            }
+            try loginItems.toggle()
+            if loginItems.requiresApproval { showLoginItemApprovalHelp() }
         } catch { showMessage("Could not change Open at Login", error.localizedDescription) }
+    }
+    @objc private func openLoginItemSettings() { SMAppService.openSystemSettingsLoginItems() }
+
+    private func showLoginItemApprovalHelp() {
+        let alert = NSAlert()
+        alert.messageText = "Open at Login needs approval"
+        alert.informativeText = "Allow StageFit in System Settings → General → Login Items & Extensions to start it when you sign in."
+        alert.addButton(withTitle: "Open Login Items Settings")
+        alert.addButton(withTitle: "Later")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn { openLoginItemSettings() }
     }
     @objc private func openAccessibilitySettings() {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else { return }
         NSWorkspace.shared.open(url)
     }
     @objc private func showAbout() {
-        showMessage("StageFit 0.1.0", "Press Control–Option–F to fit a window while leaving room for Stage Manager. Open source under the MIT License.")
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        showMessage("StageFit \(version)", "Press Control–Option–F to fit a window while leaving room for Stage Manager. Open source under the MIT License.")
     }
     @objc private func quit() { NSApp.terminate(nil) }
 
