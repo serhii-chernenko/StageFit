@@ -10,7 +10,7 @@ StageFit is a small, open-source macOS menu bar app that fits the front window t
 
 ## Install from the DMG
 
-1. Download `StageFit-0.2.1-universal.dmg` from [Releases](https://github.com/serhii-chernenko/StageFit/releases/latest) and open it.
+1. Download `StageFit-0.2.2-universal.dmg` from [Releases](https://github.com/serhii-chernenko/StageFit/releases/latest) and open it.
 2. Drag **StageFit.app** onto the **Applications** shortcut in the disk image. Eject the image, then open StageFit from Applications.
 3. On the first launch, macOS may show **“StageFit” Not Opened** and say that Apple could not verify it is free of malware. Click **Done** in that dialog.
 4. Open **System Settings → Privacy & Security**, scroll down to **Security**, and click **Open Anyway** for StageFit. When the warning returns, click **Open** and enter your Mac password if asked. If **Open Anyway** is missing, try opening StageFit from Applications again, then return to this settings page. Apple makes the button available for [about an hour after a blocked launch](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac). This approves only StageFit; you do not need to disable Gatekeeper. [Apple's instructions](https://support.apple.com/102445)
@@ -20,30 +20,35 @@ This first-launch warning appears because the downloadable app is **ad-hoc signe
 
 **Accessibility approval cannot be automatic.** macOS requires the person using the Mac to grant it. StageFit requests the permission and opens the right settings page, but cannot switch its own permission on. The global shortcut and login item are set up by the app itself. [Apple's Accessibility API](https://developer.apple.com/documentation/applicationservices/1459186-axisprocesstrustedwithoptions)
 
-> [!NOTE]
-> Builds made without an Apple Developer ID cannot be notarized. macOS may ask for Accessibility approval again after an update because each ad-hoc signed build has a different code identity. If StageFit appears enabled but asks again, remove its old Accessibility entry, reopen StageFit, and enable the new entry. [Apple's distribution guidance](https://developer.apple.com/developer-id/)
-
-### Accessibility enabled, but resizing still asks for access
-
-An enabled entry can refer to an older ad-hoc signature. The update's Ed25519 signature proves who published the download; macOS tracks Accessibility permission using the app's separate code-signing identity.
-
-1. Choose **Repair Accessibility Access…** from the StageFit menu.
-2. Try turning StageFit off and on in **Accessibility / Device Control and Data Access**. If it still fails, return to StageFit's help and choose **Reset StageFit Access…**, then confirm **Reset Access**. This clears only StageFit's grant; it does not enable access automatically.
-3. In System Settings, enable the new StageFit entry. If it is missing, use **+** to add `/Applications/StageFit.app`. Close old permission dialogs and restart StageFit if the change is not picked up immediately.
-
-StageFit shows recovery help once per session, and the menu can reopen it. It requests the native macOS permission prompt only when you choose to open the settings or confirm a reset.
+After an update, macOS may require renewed Accessibility approval. See [Troubleshooting](#troubleshooting) or **Help → Accessibility After Updates…** in the app menu.
 
 ## Use
 
-Look for the StageFit window icon in the menu bar. Click or right-click it to fit the front window, change the Stage Manager gap (160–280 points), choose **Automatic**, **Left**, or **Right** for the gap side, toggle **Open at Login**, check for updates, or quit.
+Look for the StageFit window icon in the menu bar. Click or right-click it to fit the front window, change the Stage Manager gap (160–280 points), choose **Automatic**, **Left**, or **Right** for the gap side, toggle **Open at Login**, check for updates, open **Help**, or quit.
 
 **Open at Login** shows a checkmark when enabled and a dash with **Approval Required** when macOS needs your approval. Choose **Approve Open at Login…** to open the relevant System Settings page, or click the toggle to cancel the registration. **Login Items Settings…** is also available when approval is not pending. Changes made in System Settings are reflected the next time you open the menu and are respected when StageFit restarts.
 
 **Check for Updates…** shows release notes when a newer version is available and offers **Install Update**. StageFit downloads the update, verifies its signature, then installs it and relaunches. Update checks are manual; background checks, automatic installation, and system-profile reporting are disabled by default. Offline and failed checks show an error and can be retried. Install StageFit in Applications first so it can update in place.
 
-If you are upgrading from **0.1.0**, install **0.2.1** from the DMG once to get the updater. Later releases can be installed through the menu. Accessibility approval still needs to be renewed after an update because the published builds are ad-hoc signed.
+If you are upgrading from **0.1.0**, install **0.2.2** from the DMG once to get the updater. Later releases can be installed through the menu. Each ad-hoc signed update can require renewed Accessibility approval; see [Troubleshooting](#troubleshooting).
 
 The app changes only the focused window's position and size. Some macOS dialogs, full-screen windows, and apps that block window resizing cannot be fitted. If **Control–Option–F** is already registered by another app, StageFit reports the conflict at launch.
+
+## Troubleshooting
+
+### Accessibility enabled, but resizing still asks for access after an update
+
+**This can recur after every update with the current ad-hoc signed releases.** Each build changes the app's code-signing identity, so an enabled StageFit entry in System Settings can still refer to the previous copy. It applies to both **Check for Updates…** and manual DMG installs. The update's Ed25519 signature verifies the download; macOS uses a separate code-signing identity for Accessibility permission.
+
+**A reset is not always necessary.** Try these steps in order:
+
+1. Open **System Settings → Privacy & Security → Accessibility** (**Device Control and Data Access** on macOS 27). Turn StageFit off and on, then try **Control–Option–F** again.
+2. If resizing still asks for permission, choose **Repair Accessibility Access…** from StageFit's menu, then **Reset StageFit Access…** and confirm **Reset Access**. This clears only StageFit's Accessibility grant; it does not enable access automatically or affect other apps.
+3. Enable StageFit again in System Settings. If its entry is missing, use **+** to add `/Applications/StageFit.app`. Close old permission dialogs and restart StageFit if the change is not picked up immediately.
+
+**Help → Accessibility After Updates…** is always available, even when StageFit reports **Accessibility: Granted**. It explains this case and can open System Settings without requesting or resetting permission. **Help → Troubleshooting Online…** opens this section. Recovery help appears once per session when access is missing; **Repair Accessibility Access…** can reopen it.
+
+macOS requires you to approve access yourself. StageFit never resets permission automatically during an update. Preventing the changing code identity requires releases signed with a stable code-signing certificate; current public releases still use ad-hoc signing. Switching to a certificate would also require approval once for the new identity. See [Build from source](#build-from-source) for the signing option and [Apple's code-signing guidance](https://developer.apple.com/library/archive/technotes/tn2206/_index.html).
 
 ## Build from source
 
