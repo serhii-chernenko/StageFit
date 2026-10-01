@@ -9,6 +9,7 @@ app_dir="$build_dir/StageFit.app"
 binary="$app_dir/Contents/MacOS/StageFit"
 version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$repo_dir/Resources/Info.plist")"
 dmg="$dist_dir/StageFit-$version-universal.dmg"
+zip="$dist_dir/StageFit-$version-universal.zip"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "Build on macOS with Xcode Command Line Tools installed." >&2
@@ -17,15 +18,21 @@ fi
 
 mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources" "$dist_dir"
 cp -X "$repo_dir/Resources/Info.plist" "$app_dir/Contents/Info.plist"
+sparkle_dir="$("$repo_dir/Scripts/fetch-sparkle.sh")"
+mkdir -p "$app_dir/Contents/Frameworks"
+ditto "$sparkle_dir/Sparkle.framework" "$app_dir/Contents/Frameworks/Sparkle.framework"
+cp "$sparkle_dir/LICENSE" "$app_dir/Contents/Resources/Sparkle-LICENSE.txt"
+"$repo_dir/Scripts/test-login-items.sh"
 
 sdk="$(xcrun --sdk macosx --show-sdk-path)"
-source="$repo_dir/Sources/StageFit/main.swift"
-frameworks=(-framework AppKit -framework ApplicationServices -framework Carbon -framework ServiceManagement)
+sources=("$repo_dir"/Sources/StageFit/*.swift)
+frameworks=(-framework AppKit -framework ApplicationServices -framework Carbon -framework ServiceManagement -framework Sparkle)
 for architecture in arm64 x86_64; do
   xcrun swiftc -O -sdk "$sdk" -target "$architecture-apple-macos13.0" \
-    "${frameworks[@]}" "$source" -o "$build_dir/StageFit-$architecture"
+    -F "$sparkle_dir" -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
+    "${frameworks[@]}" "${sources[@]}" -o "$build_dir/StageFit-$architecture"
   if [[ "$architecture" == "$(uname -m)" ]]; then
-    "$build_dir/StageFit-$architecture" --self-test
+    DYLD_FRAMEWORK_PATH="$sparkle_dir" "$build_dir/StageFit-$architecture" --self-test
   fi
 done
 lipo -create "$build_dir/StageFit-arm64" "$build_dir/StageFit-x86_64" -output "$binary"
@@ -46,6 +53,7 @@ iconutil -c icns "$iconset" -o "$app_dir/Contents/Resources/StageFit.icns"
 xattr -cr "$app_dir"
 codesign --force --sign - --identifier com.serhiichernenko.stagefit "$app_dir"
 codesign --verify --deep --strict "$app_dir"
+ditto -c -k --sequesterRsrc --keepParent "$app_dir" "$zip"
 
 stage="$build_dir/dmg"
 mkdir -p "$stage"
@@ -59,6 +67,7 @@ cat > "$stage/READ ME FIRST.txt" <<'TEXT'
    to use System Settings > Privacy & Security > Open Anyway.
 3. Allow StageFit in Privacy & Security > Accessibility.
 4. Press Control-Option-F to fit the front window.
+5. Use Open at Login and Check for Updates from the StageFit menu bar menu.
 
 StageFit is ad-hoc signed and not notarized. It does not require TestFlight or
 an Apple Developer account to build or use.
@@ -67,5 +76,6 @@ TEXT
 rm -f "$dmg"
 hdiutil create -volname "StageFit $version" -srcfolder "$stage" -ov -format UDZO \
   -imagekey zlib-level=9 "$dmg" >/dev/null
-(cd "$dist_dir" && shasum -a 256 "${dmg:t}" > SHA256SUMS.txt)
+(cd "$dist_dir" && shasum -a 256 "${dmg:t}" "${zip:t}" > SHA256SUMS.txt)
 echo "Built $dmg"
+echo "Built $zip"
