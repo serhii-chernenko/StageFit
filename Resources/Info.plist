@@ -9,8 +9,8 @@
   <key>CFBundleName</key><string>StageFit</string>
   <key>CFBundleDisplayName</key><string>StageFit</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.2.1</string>
-  <key>CFBundleVersion</key><string>3</string>
+  <key>CFBundleShortVersionString</key><string>0.2.2</string>
+  <key>CFBundleVersion</key><string>4</string>
   <key>SUFeedURL</key><string>https://github.com/serhii-chernenko/StageFit/releases/latest/download/appcast.xml</string>
   <key>SUPublicEDKey</key><string>LHyMsC2JGxpSOv9gzKCXGGdppJo4O40KoJ3INmRcKo4=</string>
   <key>SUEnableAutomaticChecks</key><false/>

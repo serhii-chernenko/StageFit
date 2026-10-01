@@ -201,6 +201,26 @@ private final class StageFitController: NSObject, NSApplicationDelegate, NSMenuD
         else { showAccessibilityHelpIfNeeded(explicitlyRequested: true) }
     }
 
+    @objc private func showAccessibilityUpdateHelp() {
+        let alert = NSAlert()
+        alert.messageText = "Accessibility after updating StageFit"
+        alert.informativeText = "Current releases are ad-hoc signed. Each update changes the app’s code identity, so macOS may require you to approve Accessibility again—even if StageFit is already enabled. This can happen with both in-app updates and DMG installs.\n\n1. Open System Settings → Privacy & Security → \(accessibilityPaneName), then turn StageFit off and on.\n2. If resizing still fails, choose Repair Accessibility Access… in StageFit’s menu, then Reset StageFit Access… and confirm. Reset only if the first step did not help.\n3. Enable StageFit again. If its entry is missing, add /Applications/StageFit.app with the + button. Restart StageFit if needed.\n\nOpening this help does not reset access. macOS requires you to approve the permission yourself."
+        alert.addButton(withTitle: "Open Settings")
+        alert.addButton(withTitle: "Troubleshooting Online")
+        alert.addButton(withTitle: "Done")
+        NSApp.activate(ignoringOtherApps: true)
+        switch alert.runModal() {
+        case .alertFirstButtonReturn: openAccessibilitySettings()
+        case .alertSecondButtonReturn: openTroubleshooting()
+        default: break
+        }
+    }
+
+    @objc private func openTroubleshooting() {
+        guard let url = URL(string: "https://github.com/serhii-chernenko/StageFit#troubleshooting") else { return }
+        NSWorkspace.shared.open(url)
+    }
+
     @objc private func applicationActivated(_ notification: Notification) {
         guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
                 as? NSRunningApplication,
@@ -306,6 +326,18 @@ private final class StageFitController: NSObject, NSApplicationDelegate, NSMenuD
                                  keyEquivalent: "")
         updates.target = updaterController
         menu.addItem(updates)
+        let helpMenu = NSMenu(title: "Help")
+        let accessibilityHelp = NSMenuItem(title: "Accessibility After Updates…",
+                                           action: #selector(showAccessibilityUpdateHelp), keyEquivalent: "")
+        accessibilityHelp.target = self
+        helpMenu.addItem(accessibilityHelp)
+        let troubleshooting = NSMenuItem(title: "Troubleshooting Online…",
+                                          action: #selector(openTroubleshooting), keyEquivalent: "")
+        troubleshooting.target = self
+        helpMenu.addItem(troubleshooting)
+        let help = NSMenuItem(title: "Help", action: nil, keyEquivalent: "")
+        help.submenu = helpMenu
+        menu.addItem(help)
         let quit = NSMenuItem(title: "Quit StageFit", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)

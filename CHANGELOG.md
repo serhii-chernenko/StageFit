@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2 — 2026-10-01
+
+- Add a permanent **Help → Accessibility After Updates…** menu item with recovery steps, available even when Accessibility is granted. Opening help does not request or reset permission.
+- Add **Help → Troubleshooting Online…** linking directly to the README's Troubleshooting section.
+- Explain that each ad-hoc signed update can require renewed Accessibility approval, whether installed in the app or from a DMG. Try toggling access first; reset only if that fails.
+
 ## 0.2.1 — 2026-10-01
 
 - Stop requesting macOS permission and showing an overlapping app dialog on every resize attempt. Show recovery help once per session, with an explicit menu action to reopen it.
